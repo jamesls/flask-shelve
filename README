@@ -1,0 +1,4 @@
+Flask-Shelve
+------------
+
+An extension that integrates the shelve module with flask.
