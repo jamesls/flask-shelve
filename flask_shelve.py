@@ -56,13 +56,13 @@ class _Shelve(object):
 
     def open_db(self, mode='r'):
         if self._is_write_mode(mode):
-            fileno = self._lock._aquire_write_lock()
+            fileno = self._lock._acquire_write_lock()
             writer = self._open_db(mode)
             writer.fileno = fileno
             _request_ctx_stack.top.shelve_writer = writer
             return writer
         else:
-            fileno = self._lock._aquire_read_lock()
+            fileno = self._lock._acquire_read_lock()
             reader = self._open_db(mode)
             reader.fileno = fileno
             _request_ctx_stack.top.shelve_reader = reader
@@ -97,16 +97,16 @@ class _FileLock(object):
         self._filename = lockfile
         self._waiting_for_write_lock = False
         self._waiting_for_read_lock = False
-        # Touch the file so we can aquire read locks.
+        # Touch the file so we can acquire read locks.
         open(self._filename, 'w').close()
 
-    def _aquire_read_lock(self):
+    def _acquire_read_lock(self):
         # Keep in mind that we're operating in a multithreaded environment.
         # If someone is waiting on a write lock, we can essentially keep them
         # waiting indefinitely if we keep on handing on read locks (there
         # can be multiple read locks issued at any time).  So instead, if
         # someone is waiting on a write lock, we poll until they've
-        # aquired the lock and then block on aquiring a lock.
+        # acquired the lock and then block on aquiring a lock.
         while self._waiting_for_write_lock:
             time.sleep(LOCK_POLL_SECS)
         fileno = os.open(self._filename, os.O_RDWR)
@@ -115,11 +115,7 @@ class _FileLock(object):
         self._waiting_for_read_lock = False
         return fileno
 
-    def _aquire_write_lock(self):
-        # See the comment in _aquire_write_lock, the same rationale
-        # applies here.
-        while self._waiting_for_read_lock:
-            time.sleep(LOCK_POLL_SECS)
+    def _acquire_write_lock(self):
         fileno = os.open(self._filename, os.O_RDWR)
         self._waiting_for_write_lock = True
         fcntl.flock(fileno, fcntl.LOCK_EX)
