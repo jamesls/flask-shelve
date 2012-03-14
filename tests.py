@@ -7,7 +7,7 @@ import shelve
 import tempfile
 
 import flask
-from flask_shelve import init_app, get_shelve
+from flask.ext.shelve import init_app, get_shelve
 
 
 class TestFlaskShelve(unittest.TestCase):

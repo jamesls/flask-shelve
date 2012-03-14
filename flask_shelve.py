@@ -2,9 +2,13 @@
 import os
 import shelve
 import fcntl
+import time
 
 import flask
 from flask import _request_ctx_stack
+
+
+LOCK_POLL_SECS = 0.02
 
 
 def init_app(app):
@@ -91,17 +95,35 @@ class _Shelve(object):
 class _FileLock(object):
     def __init__(self, lockfile):
         self._filename = lockfile
+        self._waiting_for_write_lock = False
+        self._waiting_for_read_lock = False
         # Touch the file so we can aquire read locks.
         open(self._filename, 'w').close()
 
     def _aquire_read_lock(self):
+        # Keep in mind that we're operating in a multithreaded environment.
+        # If someone is waiting on a write lock, we can essentially keep them
+        # waiting indefinitely if we keep on handing on read locks (there
+        # can be multiple read locks issued at any time).  So instead, if
+        # someone is waiting on a write lock, we poll until they've
+        # aquired the lock and then block on aquiring a lock.
+        while self._waiting_for_write_lock:
+            time.sleep(LOCK_POLL_SECS)
         fileno = os.open(self._filename, os.O_RDWR)
+        self._waiting_for_read_lock = True
         fcntl.flock(fileno, fcntl.LOCK_SH)
+        self._waiting_for_read_lock = False
         return fileno
 
     def _aquire_write_lock(self):
+        # See the comment in _aquire_write_lock, the same rationale
+        # applies here.
+        while self._waiting_for_read_lock:
+            time.sleep(LOCK_POLL_SECS)
         fileno = os.open(self._filename, os.O_RDWR)
+        self._waiting_for_write_lock = True
         fcntl.flock(fileno, fcntl.LOCK_EX)
+        self._waiting_for_write_lock = False
         return fileno
 
     def _release_read_lock(self, fileno):
