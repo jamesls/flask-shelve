@@ -7,7 +7,7 @@ Integrate the shelve module with flask.
 Links
 `````
 
-* `documentation <http://packages.python.org/Flask-Raptor>`_
+* `documentation <http://packages.python.org/Flask-Shelve/>`_
 
 """
 
@@ -17,8 +17,7 @@ from setuptools import setup
 setup(
     name='Flask-Shelve',
     version='0.1',
-    # TODO: change me!
-    url='http://github.com/dplepage/flask-raptor',
+    url='https://github.com/jamesls/flask-shelve',
     license='BSD',
     author='James Saryerwinnie',
     author_email='jls.npi@gmail.com',
