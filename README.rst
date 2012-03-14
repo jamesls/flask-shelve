@@ -9,7 +9,7 @@ View the docs at: http://packages.python.org/Flask-Shelve/
 Running the Tests
 ~~~~~~~~~~~~~~~~~
 
-The tests can be run using:
+The tests can be run using::
 
     python setup.py test
 
