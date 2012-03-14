@@ -56,13 +56,13 @@ class _Shelve(object):
 
     def open_db(self, mode='r'):
         if self._is_write_mode(mode):
-            fileno = self._lock._acquire_write_lock()
+            fileno = self._lock.acquire_write_lock()
             writer = self._open_db(mode)
             writer.fileno = fileno
             _request_ctx_stack.top.shelve_writer = writer
             return writer
         else:
-            fileno = self._lock._acquire_read_lock()
+            fileno = self._lock.acquire_read_lock()
             reader = self._open_db(mode)
             reader.fileno = fileno
             _request_ctx_stack.top.shelve_reader = reader
@@ -85,11 +85,11 @@ class _Shelve(object):
         if hasattr(top, 'shelve_writer'):
             writer = top.shelve_writer
             writer.close()
-            self._lock._release_write_lock(writer.fileno)
+            self._lock.release_write_lock(writer.fileno)
         elif hasattr(top, 'shelve_reader'):
             reader = top.shelve_reader
             reader.close()
-            self._lock._release_read_lock(reader.fileno)
+            self._lock.release_read_lock(reader.fileno)
 
 
 class _FileLock(object):
@@ -100,7 +100,7 @@ class _FileLock(object):
         # Touch the file so we can acquire read locks.
         open(self._filename, 'w').close()
 
-    def _acquire_read_lock(self):
+    def acquire_read_lock(self):
         # Keep in mind that we're operating in a multithreaded environment.
         # If someone is waiting on a write lock, we can essentially keep them
         # waiting indefinitely if we keep on handing on read locks (there
@@ -115,17 +115,17 @@ class _FileLock(object):
         self._waiting_for_read_lock = False
         return fileno
 
-    def _acquire_write_lock(self):
+    def acquire_write_lock(self):
         fileno = os.open(self._filename, os.O_RDWR)
         self._waiting_for_write_lock = True
         fcntl.flock(fileno, fcntl.LOCK_EX)
         self._waiting_for_write_lock = False
         return fileno
 
-    def _release_read_lock(self, fileno):
+    def release_read_lock(self, fileno):
         fcntl.flock(fileno, fcntl.LOCK_UN)
         os.close(fileno)
 
-    def _release_write_lock(self, fileno):
+    def release_write_lock(self, fileno):
         fcntl.flock(fileno, fcntl.LOCK_UN)
         os.close(fileno)
