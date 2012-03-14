@@ -14,18 +14,15 @@ which provides basic key value storage to views::
     import flask
     from flask.ext import shelve
 
-
     app = flask.Flask(__name__)
     app.config['SHELVE_FILENAME'] = 'shelve.db'
     shelve.init_app(app)
-
 
     @app.route('/')
     def index():
         db = shelve.get_shelve('c')
         db['foo'] = 'bar'
         return str(db['other_key'])
-
 
     if __name__ == '__main__':
         app.run()
@@ -89,9 +86,7 @@ mode argument of 'c', 'n', 'w', or 'r'.  The returned value is a
     from flask.ext.shelve import get_shelve, init_app
     from myapp import app
 
-
     init_app(app)
-
 
     @app.route('/')
     def index():
@@ -119,16 +114,17 @@ underlying dbm, instead it implements its own locking:
 * In order to write to the db, all read locks must be released, and there
   can't be anyone else writing to the db.
 
-In practice, this means that while any thread or process has a view function
+In practice, this means that any thread or process has a view function
 that has called ``shelve.get_db`` with a mode of 'c', 'n', or 'w' will block
-until all views that have the db opened return.  Note that this is across
-**all threads and processes for any given shelve file.**
+until all views that have the db currently opened return.
+Note that this is across **all threads and processes for any given shelve file.**
 
 Performance
 -----------
 
-Performance is terrible.  This may change in the future, but there are much
-better options if you need something with higher performance (a separate server
+Performance is terrible, mostly due to the locking needed for concurrent access
+discussed above.  This may change in the future, but there are much better
+options if you need something with higher performance (a separate server
 running a SQL/NoSQL db).  The main reasons for using this extension are:
 
 * **Simplicity** -  All your data is stored locally using the familiar shelve module.
