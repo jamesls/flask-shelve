@@ -26,7 +26,7 @@ setup(
     maintainer_email='jls.npi@gmail.com',
     description='Shelve support for Flask',
     long_description=__doc__,
-    pymodules=['flask_shelve'],
+    py_modules=['flask_shelve'],
     zip_safe=False,
     platforms='any',
     install_requires=[
