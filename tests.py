@@ -72,12 +72,13 @@ class TestFlaskShelve(unittest.TestCase):
 
     def test_default_config_values(self):
         app = flask.Flask('missing-shelve-filename')
-        app.config['SHELVE_FILENAME'] = 'shelve_filename'
+        app.config['SHELVE_FILENAME'] = self.tempfile.name
         init_app(app)
         cfg = app.config
         self.assertEqual(cfg['SHELVE_PROTOCOL'], None)
         self.assertEqual(cfg['SHELVE_WRITEBACK'], False)
-        self.assertEqual(cfg['SHELVE_LOCKFILE'], 'shelve_filename.lock')
+        self.assertEqual(cfg['SHELVE_LOCKFILE'],
+                         self.tempfile.name + '.lock')
 
 
 if __name__ == '__main__':
