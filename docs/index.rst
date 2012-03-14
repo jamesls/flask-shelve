@@ -8,21 +8,24 @@ Flask-Shelve
 
 .. module:: Flask-Shelve
 
-The **Flask-Shelve** extension integrates the ``shelve`` module with `Flask`_,
+The **Flask-Shelve** extension integrates the `shelve`_ module with `Flask`_,
 which provides basic key value storage to views::
 
     import flask
     from flask.ext import shelve
 
+
     app = flask.Flask(__name__)
     app.config['SHELVE_FILENAME'] = 'shelve.db'
     shelve.init_app(app)
 
+
     @app.route('/')
     def index():
-        db = shelve.get_db('c')
+        db = shelve.get_shelve('c')
         db['foo'] = 'bar'
         return str(db['other_key'])
+
 
     if __name__ == '__main__':
         app.run()
@@ -65,6 +68,46 @@ In general, you typically need to supply just the ``SHELVE_FILENAME`` option,
 the remaining config options have reasonable defaults.
 
 
+Using Flask-Shelve
+------------------
+
+To enable the **Flask-Shelve** extension, use the ``init_app`` function::
+
+    import flask
+    from flask.ext.shelve import init_app
+
+    app = flask.Flask(__name__)
+    app.config['SHELVE_FILENAME'] = 'shelve.db'
+    init_app(app)
+
+
+In a view function, you can invoke the :func:`get_shelve` function, with a
+mode argument of 'c', 'n', 'w', or 'r'.  The returned value is a
+:func:`shelve.Shelf` instance, which exposes a dict like interface::
+
+
+    from flask.ext.shelve import get_shelve, init_app
+    from myapp import app
+
+
+    init_app(app)
+
+
+    @app.route('/')
+    def index():
+        db = get_shelve('c')
+        db['foo'] = 'bar'
+        return str(db['other_key'])
+
+    if __name__ == '__main__':
+        app.run()
+
+
+The view function does not need to worry about aquiring/releasing read/write
+locks, nor does it need to worry about closing the shelve instance,
+**Flask-Shelve** takes care of this for you.
+
+
 Concurrency
 -----------
 
@@ -81,6 +124,18 @@ that has called ``shelve.get_db`` with a mode of 'c', 'n', or 'w' will block
 until all views that have the db opened return.  Note that this is across
 **all threads and processes for any given shelve file.**
 
+Performance
+-----------
+
+Performance is terrible.  This may change in the future, but there are much
+better options if you need something with higher performance (a separate server
+running a SQL/NoSQL db).  The main reasons for using this extension are:
+
+* **Simplicity** -  All your data is stored locally using the familiar shelve module.
+* **Minimal configuration** - No external server configuration is needed, and the
+  only app configuration needed is ``SHELVE_FILENAME``.
+
 
 .. _Flask: http://flask.pocoo.org
 .. _shelve.open: http://docs.python.org/library/shelve.html#shelve.open
+.. _shelve: http://docs.python.org/library/shelve.html
