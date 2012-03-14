@@ -1,13 +1,10 @@
-"""Integrate the shelve module with flask.
-
-How it Works
-============
-
-"""
+"""Integrate the shelve module with flask."""
 import os
 import shelve
-import flask
 import fcntl
+
+import flask
+from flask import _request_ctx_stack
 
 
 def init_app(app):
@@ -47,9 +44,6 @@ class _Shelve(object):
     def __init__(self, app):
         self.app = app
         self.app.teardown_request(self.close_db)
-        self._current_writer = None
-        self._current_writer_fileno = None
-        self._current_readers = []
         self._lock = _FileLock(app.config['SHELVE_LOCKFILE'])
         # "touch" the db file so that view functions can
         # open the db with mode='r' and not have to worry
@@ -59,14 +53,15 @@ class _Shelve(object):
     def open_db(self, mode='r'):
         if self._is_write_mode(mode):
             fileno = self._lock._aquire_write_lock()
-            self._current_writer = self._open_db(mode)
-            self._current_writer.fileno = fileno
-            return self._current_writer
+            writer = self._open_db(mode)
+            writer.fileno = fileno
+            _request_ctx_stack.top.shelve_writer = writer
+            return writer
         else:
             fileno = self._lock._aquire_read_lock()
             reader = self._open_db(mode)
             reader.fileno = fileno
-            self._current_readers.append(reader)
+            _request_ctx_stack.top.shelve_reader = reader
             return reader
 
     def _is_write_mode(self, mode):
@@ -82,27 +77,20 @@ class _Shelve(object):
         )
 
     def close_db(self, ignore_arg):
-        if self._current_writer is not None:
-            try:
-                self._current_writer.close()
-            finally:
-                self._lock._release_write_lock(self._current_writer.fileno)
-                self._current_writer = None
-                self._current_writer_fileno = None
-        else:
-            while self._current_readers:
-                reader = self._current_readers.pop()
-                try:
-                    reader.close()
-                finally:
-                    self._lock._release_read_lock(reader.fileno)
+        top = _request_ctx_stack.top
+        if hasattr(top, 'shelve_writer'):
+            writer = top.shelve_writer
+            writer.close()
+            self._lock._release_write_lock(writer.fileno)
+        elif hasattr(top, 'shelve_reader'):
+            reader = top.shelve_reader
+            reader.close()
+            self._lock._release_read_lock(reader.fileno)
 
 
 class _FileLock(object):
     def __init__(self, lockfile):
         self._filename = lockfile
-        self._opened_for_read = None
-        self._read_aquired = False
         # Touch the file so we can aquire read locks.
         open(self._filename, 'w').close()
 
