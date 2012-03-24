@@ -46,9 +46,12 @@ def index():
 @app.route('/awesomeness/', methods=['POST'])
 def awesomeness():
     data = flask.request.form
-    is_awesome = data['is_awesome'].lower() == 'true'
+    if data['is_awesome'].lower() == 'true':
+        label = 'awesome'
+    else:
+        label = 'lame'
     content = data['content']
-    process_incoming_content(content, is_awesome, db=shelve.get_shelve())
+    process_incoming_content(content, label, db=shelve.get_shelve())
     return '', 201
 
 
@@ -69,10 +72,6 @@ def reset_data():
     return '', 200
 
 
-# Remember bayes theorem:
-# P(awesomeness|content) = p(content|awesomeness) * p(awesomeness)
-#                          ---------------------------------------
-#                                         p(content)
 def decide_if_awesome(content, db):
     word_frequencies = _get_word_frequencies(content)
     p_is_awesome = check_probability('awesome', word_frequencies, db)
@@ -85,71 +84,63 @@ def decide_if_awesome(content, db):
             'is_awesome': is_awesome}
 
 
+# Remember bayes theorem:
+# P(awesomeness|content) ~ p(content|awesomeness) * p(awesomeness)
+# or:
+# P(awesomeness|content) ~ multiply(ratio of awesome docs word appears in) *
+#                          p(aweomness)
+#
 def check_probability(label, word_frequencies, db):
     if 'total_docs_seen' not in db:
         # Then we haven't processed any documents yet so just
         # return 0.0
         return 0.0
+    log.debug("== computing: p(%s|content)", label)
     total_docs_seen = float(db['total_docs_seen'])
     log.debug("total_docs_seen: %s", total_docs_seen)
-    total_awesome_docs = float(db['total_awesome_docs'])
-    log.debug("total_awesome_docs: %s", total_awesome_docs)
-    p_prior = total_awesome_docs / total_docs_seen
-    unknown_probability = math.log(1 / total_awesome_docs)
-    if label != 'awesome':
-        # Assuming binary decision
-        p_prior = 1 - p_prior
-        unknown_probability = math.log(
-            1 / (total_docs_seen - total_awesome_docs))
-    log.debug("unknown_probability: %s", unknown_probability)
-    probabilities = db['%s_words_probabilities' % label]
+    # The number of docs marked as label.
+    total_label_docs = float(db['total_%s_docs' % label])
+    log.debug("total_%s_docs: %s", label, total_label_docs)
+    p_prior = total_label_docs / total_docs_seen
+    # Total number of unique words for a class.
+    word_count = float(db.get('%s_words_count' % label, 1))
+    log.debug("word count: %s", word_count)
+    log.debug("p(%s) = %s", label, p_prior)
+    frequencies = db['%s_words' % label]
     content_given_label = {}
+    log.debug("words: %s", word_frequencies)
     for word in word_frequencies:
-        term = probabilities.get(word, unknown_probability) * \
+        term = (frequencies.get(word, 1) / word_count) * \
                 word_frequencies[word]
         content_given_label[word] = term
-    from heapq import nlargest
-    largest = nlargest(10, content_given_label, key=lambda x: content_given_label[x])
-    print
-    for l in largest:
-        print l, content_given_label[l]
-    p_content_given_label = sum(content_given_label.itervalues())
-    return (p_content_given_label + math.log(p_prior))
+    p_content_given_label = reduce(lambda a, b: a * b,
+                                   content_given_label.itervalues())
+    log.debug("p(content|%s) = %s", label, p_content_given_label)
+    prob = (p_content_given_label * (p_prior))
+    log.debug("p(%s|content) ~ %s", label, prob)
+    return prob
 
 
-def process_incoming_content(content, is_awesome, db):
+def process_incoming_content(content, label, db):
     word_frequencies = _get_word_frequencies(content)
-    all_words = db.get('all_word_frequencies', {})
-    if is_awesome:
-        existing_words = db.get('awesome_words', {})
-        existing_words_count = db.get('awesome_words_count', 0)
-    else:
-        existing_words = db.get('lame_words', {})
-        existing_words_count = db.get('lame_words_count', 0)
-
+    # A mapping of word -> frequency.  This says how
+    # many times a word occurs for a given class label.
+    existing_words = db.get('%s_words' % label, {})
+    # The total number of words
+    existing_words_count = db.get('%s_words_count' % label, 0)
     for word in word_frequencies:
         existing_words[word] = existing_words.get(word, 0) + \
                 word_frequencies[word]
         existing_words_count += word_frequencies[word]
     # Write the data back to the db.
     count = float(existing_words_count)
-    if is_awesome:
-        db['awesome_words'] = existing_words
-        db['awesome_words_count'] = existing_words_count
-        db['awesome_words_probabilities'] = dict(
-            (word, math.log(existing_words[word] / count))
-            for word in existing_words
-        )
-    else:
-        db['lame_words'] = existing_words
-        db['lame_words_count'] = existing_words_count
-        db['lame_words_probabilities'] = dict(
-            (word, math.log(existing_words[word] / count))
-            for word in existing_words
-        )
+    # Word -> frequencies
+    db['%s_words' % label] = existing_words
+    # Total number of words (this is also used as the total
+    # number of training examples.
+    db['%s_words_count' % label] = existing_words_count
     db['total_docs_seen'] = db.get('total_docs_seen', 0) + 1
-    if is_awesome:
-        db['total_awesome_docs'] = db.get('total_awesome_docs', 0) + 1
+    db['total_%s_docs' % label] = db.get('total_%s_docs' % label, 0) + 1
 
 
 def _get_word_frequencies(content):
