@@ -153,42 +153,6 @@ def _get_word_frequencies(content):
     return words
 
 
-# Copied from:
-# http://love-python.blogspot.com/2011/04/html-to-text-in-python.html
-def html_to_text(data):        
-    # remove the newlines
-    data = data.replace("\n", " ")
-    data = data.replace("\r", " ")
-   
-    # replace consecutive spaces into a single one
-    data = " ".join(data.split())   
-   
-    # get only the body content
-    bodyPat = re.compile(r'<body[^<>]*?>(.*?)</body>', re.I)
-    result = re.findall(bodyPat, data)
-    if not result:
-        return data
-    data = result[0]
-   
-    # now remove the java script
-    p = re.compile(r'<script[^<>]*?>.*?</script>')
-    data = p.sub('', data)
-   
-    # remove the css styles
-    p = re.compile(r'<style[^<>]*?>.*?</style>')
-    data = p.sub('', data)
-   
-    # remove html comments
-    p = re.compile(r'')
-    data = p.sub('', data)
-   
-    # remove all the tags
-    p = re.compile(r'<[^<]*?>')
-    data = p.sub('', data)
-   
-    return data
-
-
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)
     app.run(debug=True) #, threaded=True)
