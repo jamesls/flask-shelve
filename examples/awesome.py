@@ -4,6 +4,70 @@
 This is just a demo app that shows how to use flask shelve
 in a basic application.
 
+The basic idea behind this toy application is that you can
+post text content to /awesomeness/ and indicate whether
+you thought the content was awesome or not.
+
+You can then post content to /awesomeness/check/ and it will
+predict whether or not you'll think the content is awesome.
+
+There's an awesome_client.py script in this directory that
+is a command line interface to submit/check content.
+
+
+Running the Example App
+=======================
+
+Start the server::
+
+    python awesome.py
+
+Submit content to the server.  There's sample training data
+if you don't want to collect your own.  To use the included
+training data::
+
+    tar xvfj training.tar.gz
+    cd training/awesome
+
+Submitting awesome content::
+
+    for i in *; do python ../../awesome_client.py --awesome < $i; done
+
+Then submit some lame content::
+
+    cd ../lame
+    for i in *; do python ../../awesome_client.py --no-awesome < $i; done
+
+You can then check whether or not content is awesome::
+
+    $ python ../../awesome_client.py -cv < lame0
+    {
+      "awesome": -2144.2484148660205,
+      "is_awesome": false,
+      "lame": -1623.0717811153863
+   }
+
+In this, it's correctly predicted the lame0 document as lame (the higher score
+wins, so -1623 > -2144 so the content is classified as lame).
+
+You can try it with new content:
+
+
+    $ echo "lame content" | python ../../awesome_client.py -cv
+    {
+      "awesome": -25.611903237814552,
+      "is_awesome": false,
+      "lame": -24.483189465200347
+    }
+
+    $ $ echo "python is awesome" | python ../../awesome_client.py -cv
+    {
+      "awesome": -22.578019198296182,
+      "is_awesome": true,
+      "lame": -24.483189465200347
+    }
+
+
 """
 import os
 import re
@@ -84,12 +148,14 @@ def decide_if_awesome(content, db):
             'is_awesome': is_awesome}
 
 
+# Basic naive bayes classifier with the bag of words model.
 # Remember bayes theorem:
 # P(awesomeness|content) ~ p(content|awesomeness) * p(awesomeness)
-# or:
-# P(awesomeness|content) ~ multiply(ratio of awesome docs word appears in) *
-#                          p(aweomness)
 #
+# The actual calculation is:
+#     sum(log(c_i|awesomeness)) + log(p(awesomeness)
+# to avoid underflow.
+
 def check_probability(label, word_frequencies, db):
     if 'total_docs_seen' not in db:
         # Then we haven't processed any documents yet so just
@@ -155,4 +221,4 @@ def _get_word_frequencies(content):
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)
-    app.run(debug=True) #, threaded=True)
+    app.run(debug=True, threaded=True)
