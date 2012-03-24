@@ -114,7 +114,7 @@ underlying dbm, instead it implements its own locking:
 * In order to write to the db, all read locks must be released, and there
   can't be anyone else writing to the db.
 
-In practice, this means that any thread or process has a view function
+In practice, this means that any thread or process which has a view function
 that has called ``shelve.get_db`` with a mode of 'c', 'n', or 'w' will block
 until all views that have the db currently opened return.
 Note that this is across **all threads and processes for any given shelve file.**
