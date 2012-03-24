@@ -107,16 +107,16 @@ def check_probability(label, word_frequencies, db):
     log.debug("word count: %s", word_count)
     log.debug("p(%s) = %s", label, p_prior)
     frequencies = db['%s_words' % label]
+    # This holds the "weight" of each word.  It is basically
+    # the ratio of how often the word occurs in the labeled documents.
     content_given_label = {}
-    log.debug("words: %s", word_frequencies)
     for word in word_frequencies:
-        term = (frequencies.get(word, 1) / word_count) * \
+        term = math.log(frequencies.get(word, 1) / word_count) * \
                 word_frequencies[word]
         content_given_label[word] = term
-    p_content_given_label = reduce(lambda a, b: a * b,
-                                   content_given_label.itervalues())
+    p_content_given_label = sum(content_given_label.itervalues())
     log.debug("p(content|%s) = %s", label, p_content_given_label)
-    prob = (p_content_given_label * (p_prior))
+    prob = (p_content_given_label + math.log(p_prior))
     log.debug("p(%s|content) ~ %s", label, prob)
     return prob
 
